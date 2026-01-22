@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Zyppayx Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #000;
+      margin: 0;
+      color: #eee;
+    }
+
+    .header {
+      background: #6a0dad;
+      color: #fff;
+      padding: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .bell {
+      position: relative;
+      cursor: pointer;
+      font-size: 22px;
+      color: #fff;
+    }
+
+    .bell-count {
+      position: absolute;
+      top: -5px;
+      right: -10px;
+      background: red;
+      color: #fff;
+      border-radius: 50%;
+      padding: 2px 6px;
+      font-size: 12px;
+    }
+
+    button {
+      background: #6a0dad;
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #580c9e;
+    }
+
+    .box {
+      background: #111;
+      margin: 15px;
+      padding: 20px;
+      border-radius: 12px;
+    }
+
+    .banner img {
+      width: 100%;
+      height: 180px;
+      border-radius: 12px;
+      object-fit: cover;
+      cursor: pointer;
+    }
+
+    .task-card {
+      border-bottom: 1px solid #333;
+      padding: 10px 0;
+    }
+
+    .promotion-card {
+      flex: 0 0 auto;
+      width: 200px;
+      margin: 10px;
+    }
+
+    .promotion-card img {
+      width: 100%;
+      height: 120px;
+      border-radius: 12px;
+      object-fit: cover;
+      cursor: pointer;
+    }
+
+    .notification-panel {
+      position: absolute;
+      top: 55px;
+      right: 15px;
+      width: 300px;
+      max-height: 350px;
+      background: #111;
+      border-radius: 12px;
+      overflow-y: auto;
+      z-index: 1000;
+      box-shadow: 0 0 10px rgba(0,0,0,0.6);
+      transform: scaleY(0);
+      transform-origin: top;
+      transition: transform 0.3s ease-in-out;
+    }
+
+    .notification-panel.show {
+      transform: scaleY(1);
+    }
+
+    .notification-item {
+      padding: 12px;
+      border-bottom: 1px solid #333;
+      font-size: 14px;
+    }
+
+    .notification-item b {
+      color: #bb86fc;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 15px;
+      font-size: 14px;
+      color: #ccc;
+    }
+
+    .footer a {
+      color: #bb86fc;
+      text-decoration: none;
+    }
+
+    #promotionsWrapper {
+      overflow-x: auto;
+      display: flex;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .uploadStatus {
+      font-size: 12px;
+      color: #bb86fc;
+      margin-top: 5px;
+    }
+
+    input.screenshotInput {
+      margin-top: 10px;
+      border-radius: 8px;
+      padding: 5px;
+      width: 90%;
+      background: #222;
+      color: #eee;
+      border: 1px solid #555;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <b>Zyppayx</b>
+  <div class="header-right">
+    <span id="bell" class="bell">
+      🔔<span id="bellCount" class="bell-count">0</span>
+    </span>
+    <button id="logoutBtn">Logout</button>
+  </div>
+  <div id="notificationPanel" class="notification-panel"></div>
+</div>
+
+<!-- Banner -->
+<div class="box banner">
+  <img id="bannerAd" src="" alt="Banner Ad">
+</div>
+
+<!-- Balance -->
+<div class="box">
+  <h3>Balance</h3>
+  <p id="balance">₦0</p>
+  <button onclick="location.href='deposit.html'">Deposit</button>
+  <button onclick="location.href='withdraw.html'">Withdraw</button>
+  <p>Your referral link: <span id="refLink"></span></p>
+</div>
+
+<!-- Promotions -->
+<div class="box">
+  <h3>Promotions</h3>
+  <div id="promotionsWrapper"></div>
+</div>
+
+<!-- Tasks -->
+<div class="box">
+  <h3>Tasks</h3>
+  <div id="tasks"></div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  Contact us: <a href="mailto:zyppayx@gmail.com">zyppayx@gmail.com</a>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDaQrSeEcCIVOtQJwiEeS_86w11Hn-ITh8",
+  authDomain: "zyppayx-57fbf.firebaseapp.com",
+  projectId: "zyppayx-57fbf",
+};
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
+
+const bell = document.getElementById("bell");
+const bellCount = document.getElementById("bellCount");
+const panel = document.getElementById("notificationPanel");
+const bannerAd = document.getElementById("bannerAd");
+const promotionsWrapper = document.getElementById("promotionsWrapper");
+
+let promoData = [];
+let currentPromoIndex = 0;
+
+auth.onAuthStateChanged(async user=>{
+  if(!user) location.href="index.html";
+
+  document.getElementById("refLink").innerText =
+    `https://zyppayx.name.ng/?ref=${user.uid}`;
+
+  // Balance
+  const userDoc = await db.collection("users").doc(user.uid).get();
+  document.getElementById("balance").innerText =
+    "₦" + (userDoc.data()?.balance || 0);
+
+  // Banner Ad
+  db.collection("banner_ads").doc("current").get().then(doc=>{
+    if(doc.exists){
+      bannerAd.src = doc.data().imgUrl || '';
+      bannerAd.onclick = ()=>{ if(doc.data().link) window.open(doc.data().link,"_blank"); }
+    }
+  });
+
+  // Promotions
+  db.collection("promotions").orderBy("createdAt","desc")
+    .onSnapshot(snap=>{
+      promotionsWrapper.innerHTML = "";
+      promoData = [];
+      snap.forEach(doc=>{
+        const p = doc.data();
+        promoData.push(p);
+        const div = document.createElement("div");
+        div.className="promotion-card";
+        div.innerHTML = `<img src="${p.imgUrl}" alt="${p.title}" onclick="window.open('${p.link}','_blank')">`;
+        promotionsWrapper.appendChild(div);
+      });
+    });
+
+  // Tasks
+  db.collection("tasks").where("status","==","active")
+    .onSnapshot(snap=>{
+      const tasksDiv = document.getElementById("tasks");
+      tasksDiv.innerHTML="";
+      snap.forEach(d=>{
+        const t=d.data();
+        const taskCard = document.createElement("div");
+        taskCard.className = "task-card";
+        taskCard.innerHTML = `
+          <b>${t.title}</b>
+          <p>${t.description}</p>
+          <p>₦${t.reward}</p>
+          <a href="${t.taskLink}" target="_blank">Go to task</a><br><br>
+          <input type="file" accept="image/*" class="screenshotInput" data-task-id="${d.id}">
+          <button class="uploadBtn" data-task-id="${d.id}">Submit Screenshot</button>
+          <p class="uploadStatus" data-task-id="${d.id}"></p>
+        `;
+        tasksDiv.appendChild(taskCard);
+      });
+    });
+
+  // Notifications
+  db.collection("notifications").where("userId","==",user.uid)
+    .orderBy("createdAt","desc")
+    .onSnapshot(snapshot=>{
+      panel.innerHTML="";
+      let unread=0;
+      snapshot.forEach(doc=>{
+        const n = doc.data();
+        if(!n.read) unread++;
+        panel.innerHTML += `<div class="notification-item"><b>${n.title}</b><br>${n.message}</div>`;
+      });
+      bellCount.innerText = unread;
+    });
+});
+
+// Toggle notification panel with animation
+bell.onclick = async ()=>{
+  panel.classList.toggle("show");
+
+  const user = auth.currentUser;
+  const snap = await db.collection("notifications")
+    .where("userId","==",user.uid)
+    .where("read","==",false).get();
+
+  snap.forEach(doc=>doc.ref.update({read:true}));
+};
+
+// Logout
+document.getElementById("logoutBtn").onclick =
+  ()=>auth.signOut().then(()=>location.href="index.html");
+
+// Auto-scroll promotions
+setInterval(()=>{
+  if(promoData.length===0) return;
+  currentPromoIndex = (currentPromoIndex+1)%promoData.length;
+  const card = promotionsWrapper.children[currentPromoIndex];
+  if(card) promotionsWrapper.scrollLeft = card.offsetLeft;
+},5000);
+
+// ------------------- GENERAL POPUP NOTIFICATION -------------------
+const popupWrapper = document.createElement("div");
+popupWrapper.style.position = "fixed";
+popupWrapper.style.top = "50%";
+popupWrapper.style.left = "50%";
+popupWrapper.style.transform = "translate(-50%, -50%)";
+popupWrapper.style.background = "#222";
+popupWrapper.style.color = "#fff";
+popupWrapper.style.padding = "20px";
+popupWrapper.style.borderRadius = "12px";
+popupWrapper.style.zIndex = "2000";
+popupWrapper.style.display = "none";
+popupWrapper.style.textAlign = "center";
+popupWrapper.style.width = "90%";
+popupWrapper.style.maxWidth = "400px";
+popupWrapper.style.boxShadow = "0 0 20px rgba(0,0,0,0.8)";
+document.body.appendChild(popupWrapper);
+
+const popupMessage = document.createElement("p");
+popupMessage.style.marginBottom = "15px";
+popupWrapper.appendChild(popupMessage);
+
+const updateBtn = document.createElement("button");
+updateBtn.innerText = "Update";
+updateBtn.style.background = "#6a0dad";
+updateBtn.style.color = "#fff";
+updateBtn.style.border = "none";
+updateBtn.style.padding = "10px 20px";
+updateBtn.style.borderRadius = "8px";
+updateBtn.style.cursor = "pointer";
+popupWrapper.appendChild(updateBtn);
+
+db.collection("general_notifications")
+  .where("show", "==", true)
+  .orderBy("createdAt", "desc")
+  .limit(1)
+  .onSnapshot(snapshot => {
+    if(snapshot.empty) return;
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      popupMessage.innerText = data.message;
+      updateBtn.onclick = () => {
+        window.open(data.link || "#", "_blank");
+        doc.ref.update({ show: false });
+        popupWrapper.style.display = "none";
+      };
+      popupWrapper.style.display = "block";
+    });
+  });
+
+// ------------------- TASK SCREENSHOT UPLOAD -------------------
+document.addEventListener("click", async (e) => {
+  if(e.target.classList.contains("uploadBtn")) {
+    const taskId = e.target.getAttribute("data-task-id");
+    const fileInput = document.querySelector(`.screenshotInput[data-task-id="${taskId}"]`);
+    const status = document.querySelector(`.uploadStatus[data-task-id="${taskId}"]`);
+
+    if(!fileInput.files[0]) {
+      alert("Please select a screenshot first.");
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const user = auth.currentUser;
+    if(!user) return alert("User not logged in.");
+
+    const fileName = `${user.uid}_${taskId}_${Date.now()}`;
+    const storageRef = storage.ref().child(`task-submissions/${fileName}`);
+
+    status.innerText = "Uploading...";
+
+    try {
+      const snapshot = await storageRef.put(file);
+      const downloadURL = await snapshot.ref.getDownloadURL();
+
+      await db.collection("task-submissions").add({
+        userId: user.uid,
+        taskId: taskId,
+        screenshotURL: downloadURL,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      status.innerText = "Screenshot submitted successfully!";
+      fileInput.value = "";
+    } catch(err) {
+      console.error(err);
+      status.innerText = "Upload failed. Try again.";
+    }
+  }
+});
+</script>
+
+</body>
+</html>

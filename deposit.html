@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Deposit - Zyppayx</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      background: #000;
+      color: #eee;
+      font-family: Arial;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .container {
+      max-width: 400px;
+      padding: 20px;
+      background: #111;
+      border-radius: 12px;
+      text-align: center;
+    }
+    h2 { color: #bb86fc; margin-bottom: 20px; }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 8px;
+      border: 1px solid #555;
+      background: #222;
+      color: #eee;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #6a0dad;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover { opacity: 0.9; }
+    p { color: #ccc; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Deposit Funds</h2>
+  <input id="email" type="email" placeholder="Enter your email">
+  <input id="amount" type="number" placeholder="Enter amount in ₦">
+  <p id="feeText"></p>
+  <button id="depositBtn">Proceed to Paystack</button>
+</div>
+
+<!-- Paystack JS SDK -->
+<script src="https://js.paystack.co/v1/inline.js"></script>
+<script>
+const amountInput = document.getElementById("amount");
+const emailInput = document.getElementById("email");
+const feeText = document.getElementById("feeText");
+const depositBtn = document.getElementById("depositBtn");
+
+// Show 2% fee on input
+amountInput.oninput = () => {
+  const amt = Number(amountInput.value);
+  feeText.innerText = amt ? `Fee: ₦${(amt * 0.02).toFixed(2)}` : '';
+};
+
+// Paystack inline payment
+depositBtn.onclick = () => {
+  const email = emailInput.value.trim();
+  const amt = Number(amountInput.value);
+
+  if (!email) return alert("Enter your email");
+  if (!amt || amt <= 0) return alert("Enter a valid amount");
+
+  const fee = (amt * 0.02).toFixed(2);
+  const total = amt + Number(fee);
+
+  var handler = PaystackPop.setup({
+    key: 'pk_live_d52baea87b2c4e49b110aa5cda32260b33b0cb35', // your public key
+    email: email,
+    amount: total * 100, // Paystack expects amount in kobo
+    currency: "NGN",
+    callback: function(response){
+      alert('Payment complete! Reference: ' + response.reference);
+      // TODO: save payment details to your database if needed
+    },
+    onClose: function(){
+      alert('Payment cancelled.');
+    }
+  });
+  handler.openIframe();
+};
+</script>
+
+</body>
+</html>
